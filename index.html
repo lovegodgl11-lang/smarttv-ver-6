@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en" class=""><head><script>window.livecodes = window.livecodes || {};</script><title>Smarttv version 6</title><meta name="title" content="Smarttv version 6"><meta name="description" content="Update back music "><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"><link rel="stylesheet" href="./style.css"><script src="https://cdn.jsdelivr.net/npm/es-module-shims@1.10.0/dist/es-module-shims.js" async=""></script><script type="importmap">{
+  "imports": {}
+}</script></head><body>
+
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Token Display</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-database-compat.js"></script>
+    
+    <!-- Custom Styles -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&display=swap');
+        
+        html, body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #030712; /* gray-950 */
+            color: #f9fafb; /* gray-50 */
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+        .digital-font { 
+            font-family: 'Orbitron', sans-serif; 
+        }
+        
+        .highlight-update {
+            animation: flash 1.2s ease-out;
+        }
+        
+        @keyframes flash {
+            0% { background-color: rgba(79, 70, 229, 0.3); } /* indigo-600 with opacity */
+            100% { background-color: transparent; }
+        }
+
+        .light {
+            width: 1.5rem; /* 24px */
+            height: 1.5rem; /* 24px */
+            border-radius: 50%;
+            background-color: #374151; /* gray-700 */
+            transition: all 0.3s ease;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5) inset;
+        }
+        .light.red { background-color: #ef4444; box-shadow: 0 0 15px #ef4444; }
+        .light.yellow { background-color: #f59e0b; box-shadow: 0 0 15px #f59e0b; }
+        .light.green { background-color: #22c55e; box-shadow: 0 0 15px #22c55e; }
+
+        .footer-list li {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes marquee {
+            0%   { transform: translateX(0); }
+            100% { transform: translateX(-100%); }
+        }
+        .animate-marquee {
+            animation: marquee 40s linear infinite;
+        }
+        .marquee-item {
+            margin: 0 1.5rem;
+            display: inline-block;
+        }
+
+        @keyframes scroll-up {
+            from { transform: translateY(0%); }
+            to { transform: translateY(-50%); }
+        }
+        .animate-scroll-up {
+            /* Adjust duration based on list length in JS if needed */
+            animation: scroll-up 30s linear infinite;
+        }
+    </style>
+
+
+
+    <audio id="music-player" crossorigin="anonymous"></audio>
+
+    <!-- News Ticker / Marquee -->
+    <header id="marquee-container" class="w-full bg-gray-900 py-3 overflow-hidden whitespace-nowrap border-b-2 border-indigo-500/30 text-lg">
+        <div id="marquee-text" class="inline-block">
+            <!-- Customer data will be injected here by JavaScript -->
+        </div>
+    </header>
+
+    <!-- Main Display Area (Top Section) -->
+    <main class="flex-1 flex flex-col items-center justify-center p-8 text-center">
+        <div id="serving-display" class="w-full rounded-lg transition-opacity duration-500">
+            <h1 class="text-[clamp(2rem,6vh,4rem)] font-bold uppercase tracking-widest text-indigo-400">Now Serving</h1>
+            <p id="serving-token" class="digital-font text-[clamp(8rem,30vh,20rem)] font-black my-4 text-white leading-none">-</p>
+            <p id="serving-name" class="text-[clamp(2rem,7vh,5rem)] font-bold text-gray-300">-</p>
+        </div>
+        
+        <div id="no-serving-message" class="hidden text-center text-[clamp(2rem,6vh,4rem)] text-gray-500">
+            <p>Waiting for the next customer...</p>
+        </div>
+    </main>
+    
+    <!-- Footer Area (Bottom Section) -->
+    <footer class="w-full bg-gray-900/50 p-6 border-t border-gray-800 grid grid-cols-1 md:grid-cols-5 gap-6 relative">
+        <!-- Up Next List -->
+        <div class="md:col-span-1">
+            <h2 class="text-2xl font-bold text-yellow-400 border-b-2 border-yellow-400/50 pb-2 mb-4 text-center">Up Next</h2>
+            <div class="h-48 overflow-hidden relative">
+                <ul id="next-up-list" class="footer-list space-y-2 absolute top-0 left-0 w-full">
+                    <!-- Waiting customers (from 2nd onwards) will be injected here -->
+                </ul>
+            </div>
+        </div>
+        
+        <!-- On Deck Display (Center) -->
+        <div id="on-deck-display" class="md:col-span-3 flex flex-col items-center justify-center text-center rounded-lg transition-opacity duration-500">
+            <h2 class="text-[clamp(1.5rem,4vh,2.5rem)] font-bold uppercase tracking-widest text-yellow-400">On Deck</h2>
+            <p id="on-deck-token" class="digital-font text-[clamp(4rem,10vh,8rem)] font-black my-1 text-white leading-none">-</p>
+            <p id="on-deck-name" class="text-[clamp(1.5rem,4vh,2.5rem)] font-bold text-gray-300">-</p>
+             <div id="on-deck-eta-container" class="hidden flex items-center justify-center gap-6 mt-2">
+                <div class="flex items-center space-x-3">
+                    <div id="light-red" class="light"></div>
+                    <div id="light-yellow" class="light"></div>
+                    <div id="light-green" class="light"></div>
+                </div>
+                <p id="on-deck-eta-display" class="text-[clamp(2rem,6vh,4rem)] digital-font tracking-widest text-white"></p>
+            </div>
+             <div id="no-one-waiting-message" class="hidden text-center text-lg text-gray-500 mt-4">
+                <p>Queue is empty.</p>
+            </div>
+        </div>
+        
+        <!-- Recently Called List -->
+        <div class="md:col-span-1">
+            <h2 class="text-2xl font-bold text-green-400 border-b-2 border-green-400/50 pb-2 mb-4 text-center">Recently Called</h2>
+            <div class="h-48 overflow-hidden relative opacity-75">
+                <ul id="recent-list" class="footer-list space-y-2 absolute top-0 left-0 w-full">
+                    <!-- Recently called customers will be injected here -->
+                </ul>
+            </div>
+        </div>
+
+        <!-- Now Playing Banner -->
+        <div id="now-playing-banner" class="hidden absolute bottom-0 left-0 right-0 bg-black/50 p-2 text-center text-white transition-transform duration-300 translate-y-full">
+            <p class="flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3V4a1 1 0 00-.804-.98l-10-2z"></path></svg>
+                <span id="now-playing-text"></span>
+            </p>
+        </div>
+    </footer>
+
+
+    <!-- Mute/Unmute Button -->
+    <button id="mute-btn" class="fixed bottom-4 right-4 bg-white p-3 rounded-full shadow-lg z-50 hover:bg-gray-200 transition-colors">
+        <svg id="unmuted-icon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>
+        </svg>
+        <svg id="muted-icon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-700 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l-4-4m0 4l4-4"></path>
+        </svg>
+    </button>
+    
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyC0_DQIiyaVQllFH4pxH1Dm3r2kFXXoOgc",
+            authDomain: "navrosetailorapp.firebaseapp.com",
+            databaseURL: "https://navrosetailorapp-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "navrosetailorapp"
+        };
+        
+        // --- Global State ---
+        let db;
+        let isMuted = false;
+        let lastServingToken = null;
+        let countdownInterval = null;
+        let serverTimeOffset = 0;
+        let audioPlayer;
+        let lastMediaCommandTimestamp = 0; // To prevent re-triggering on reload
+
+        // --- UI Element References ---
+        const servingTokenEl = document.getElementById('serving-token');
+        const servingNameEl = document.getElementById('serving-name');
+        const servingDisplayEl = document.getElementById('serving-display');
+        const noServingMessageEl = document.getElementById('no-serving-message');
+        const marqueeTextEl = document.getElementById('marquee-text');
+        
+        // Footer elements
+        const nextUpListEl = document.getElementById('next-up-list');
+        const recentListEl = document.getElementById('recent-list');
+        const onDeckDisplayEl = document.getElementById('on-deck-display');
+        const onDeckTokenEl = document.getElementById('on-deck-token');
+        const onDeckNameEl = document.getElementById('on-deck-name');
+        const onDeckEtaContainerEl = document.getElementById('on-deck-eta-container');
+        const onDeckEtaDisplayEl = document.getElementById('on-deck-eta-display');
+        const noOneWaitingMessageEl = document.getElementById('no-one-waiting-message');
+
+        // --- Canned Announcement Texts ---
+        const announcementTexts = {
+            'keepQuiet': {
+                'en-IN': "Attention please, kindly maintain silence. Other customers are being disturbed.",
+                'hi-IN': "कृपया ध्यान दें, शांति बनाए रखें। बाकी ग्राहकों को परेशानी हो रही है।",
+                'pa-IN': "ਕਿਰਪਾ ਕਰਕੇ ਧਿਆਨ ਦਿਓ, ਸ਼ਾਂਤੀ ਬਣਾਈ ਰੱਖੋ। ਦੂਜੇ ਗਾਹਕਾਂ ਨੂੰ ਪ੍ਰੇਸ਼ਾਨੀ ਹੋ ਰਹੀ ਹੈ।"
+            }
+        };
+
+        // --- Utility Functions ---
+        const getTodayDateString = () => new Date().toISOString().slice(0, 10);
+        const escapeHtml = (unsafe) => {
+            if (typeof unsafe !== 'string') return unsafe;
+            return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        };
+        const formatEta = (etaTimestamp) => {
+            if (!etaTimestamp) return '';
+            const now = new Date().getTime() + serverTimeOffset;
+            const distance = etaTimestamp - now;
+            if (distance < 0) return 'Now';
+            const minutes = Math.floor(distance / (1000 * 60));
+            if (minutes < 1) return '< 1 min';
+            return `~${minutes} min`;
+        };
+        
+        // --- Core Functions ---
+        function speak(tokenNumber, customerName) {
+            if (isMuted || !('speechSynthesis' in window)) return;
+            
+            const wasPlaying = audioPlayer && !audioPlayer.paused;
+            if (wasPlaying) audioPlayer.pause();
+            
+            speechSynthesis.cancel();
+            
+            const textToSpeak = `Token number ${tokenNumber}, ${customerName}, please proceed to the counter.`;
+            const utterance = new SpeechSynthesisUtterance(textToSpeak);
+            utterance.lang = 'en-IN';
+            utterance.rate = 0.9;
+
+            utterance.onend = () => {
+                if (wasPlaying) audioPlayer.play().catch(e => console.error("Audio resume failed", e));
+            };
+
+            speechSynthesis.speak(utterance);
+        }
+
+        function playCannedAnnouncement(key) {
+            if (isMuted || !('speechSynthesis' in window) || !announcementTexts[key]) return;
+
+            const wasPlaying = audioPlayer && !audioPlayer.paused;
+            if (wasPlaying) audioPlayer.pause();
+
+            speechSynthesis.cancel();
+
+            const allLangs = ['hi-IN', 'pa-IN', 'en-IN'];
+            const utterances = [];
+            allLangs.forEach(lang => {
+                const text = announcementTexts[key][lang];
+                if (text) {
+                    const u = new SpeechSynthesisUtterance(text);
+                    u.lang = lang;
+                    u.rate = 0.9;
+                    utterances.push(u);
+                }
+            });
+            
+            if (utterances.length > 0) {
+                utterances[utterances.length - 1].onend = () => {
+                    if (wasPlaying) audioPlayer.play().catch(e => console.error("Audio resume failed", e));
+                };
+                utterances.forEach(u => speechSynthesis.speak(u));
+            }
+        }
+
+
+        function updateCountdown(eta) {
+            if (countdownInterval) clearInterval(countdownInterval);
+            
+            if (!eta) {
+                onDeckEtaContainerEl.classList.add('hidden');
+                return;
+            }
+            onDeckEtaContainerEl.classList.remove('hidden');
+
+            const update = () => {
+                const lightRed = document.getElementById('light-red');
+                const lightYellow = document.getElementById('light-yellow');
+                const lightGreen = document.getElementById('light-green');
+
+                const now = new Date().getTime() + serverTimeOffset;
+                const distance = eta - now;
+
+                lightRed.classList.remove('red');
+                lightYellow.classList.remove('yellow');
+                lightGreen.classList.remove('green');
+
+                if (distance < 0) {
+                    clearInterval(countdownInterval);
+                    onDeckEtaDisplayEl.textContent = 'SOON';
+                    lightGreen.classList.add('green');
+                    return;
+                }
+                const minutes = Math.floor(distance / (1000 * 60));
+                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                onDeckEtaDisplayEl.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                
+                if (minutes > 5) {
+                    lightRed.classList.add('red');
+                } else if (minutes >= 1) {
+                    lightYellow.classList.add('yellow');
+                } else {
+                    lightGreen.classList.add('green');
+                }
+            };
+            update();
+            countdownInterval = setInterval(update, 1000);
+        }
+
+        function updateDisplay(queue) {
+            // Find current serving customer
+            const servingCustomer = queue.find(c => c.status === 'Serving');
+            
+            if (servingCustomer) {
+                servingDisplayEl.classList.remove('hidden');
+                noServingMessageEl.classList.add('hidden');
+                
+                if (servingTokenEl.textContent !== String(servingCustomer.tokenNumber)) {
+                    servingTokenEl.textContent = servingCustomer.tokenNumber;
+                    servingNameEl.textContent = escapeHtml(servingCustomer.customerName);
+                    servingTokenEl.classList.add('highlight-update');
+                    servingNameEl.classList.add('highlight-update');
+                    setTimeout(() => {
+                        servingTokenEl.classList.remove('highlight-update');
+                        servingNameEl.classList.remove('highlight-update');
+                    }, 1200);
+
+                    if (lastServingToken !== servingCustomer.tokenNumber) {
+                        speak(servingCustomer.tokenNumber, servingCustomer.customerName);
+                        lastServingToken = servingCustomer.tokenNumber;
+                    }
+                }
+            } else {
+                servingDisplayEl.classList.add('hidden');
+                noServingMessageEl.classList.remove('hidden');
+                servingTokenEl.textContent = '-';
+                servingNameEl.textContent = '-';
+            }
+            
+            // Filter for waiting list (and sort by priority then token number)
+            const waitingCustomers = queue
+                .filter(c => c.status === 'Waiting')
+                .sort((a,b) => {
+                    if (a.priority === 'high' && b.priority !== 'high') return -1;
+                    if (b.priority === 'high' && a.priority !== 'high') return 1;
+                    return a.tokenNumber - b.tokenNumber;
+                });
+            
+            const onDeckCustomer = waitingCustomers[0];
+            const nextUpCustomers = waitingCustomers.slice(1, 6); // next 5 after the on-deck one
+
+            if (onDeckCustomer) {
+                onDeckDisplayEl.classList.remove('hidden');
+                noOneWaitingMessageEl.classList.add('hidden');
+                onDeckTokenEl.textContent = onDeckCustomer.tokenNumber;
+                onDeckNameEl.textContent = escapeHtml(onDeckCustomer.customerName);
+                updateCountdown(onDeckCustomer.eta);
+            } else {
+                onDeckTokenEl.textContent = '-';
+                onDeckNameEl.textContent = '-';
+                noOneWaitingMessageEl.classList.remove('hidden');
+                updateCountdown(null);
+            }
+                
+            // Update Next Up List
+            const nextUpHTML = nextUpCustomers.map((c, index) => {
+                const etaDisplay = index === 0 ? `<span class="text-lg font-medium text-yellow-300 digital-font">${formatEta(c.eta)}</span>` : '';
+                return `<li class="flex justify-between items-center text-xl p-2 rounded-lg">
+                    <div class="flex items-center gap-4">
+                        <span class="font-bold text-2xl w-12 text-center">${c.tokenNumber}</span>
+                        <span class="font-semibold">${escapeHtml(c.customerName)}</span>
+                        ${c.priority === 'high' ? '<span class="text-xs font-bold uppercase bg-red-500 text-white px-2 py-1 rounded-full">P</span>' : ''}
+                    </div>
+                    ${etaDisplay}
+                 </li>`
+            }).join('');
+            nextUpListEl.innerHTML = nextUpHTML.repeat(2); // Repeat for seamless scroll
+            nextUpListEl.classList.toggle('animate-scroll-up', nextUpCustomers.length > 3);
+
+
+            // Filter for recently called list
+            const recentCustomers = queue
+                .filter(c => ['Completed', 'Missed'].includes(c.status))
+                .sort((a, b) => (b.servingTimestamp || b.timestamp) - (a.servingTimestamp || a.timestamp)) // Sort by most recent
+                .slice(0, 5);
+            
+            const recentHTML = recentCustomers.map(c => 
+                `<li class="flex justify-between items-center text-lg p-2 rounded-lg">
+                    <span class="font-bold text-xl">${c.tokenNumber}</span>
+                    <span>${escapeHtml(c.customerName)}</span>
+                    <span class="text-sm ${c.status === 'Missed' ? 'text-orange-400' : 'text-gray-400'}">${c.status}</span>
+                 </li>`
+            ).join('');
+            recentListEl.innerHTML = recentHTML.repeat(2); // Repeat for seamless scroll
+            recentListEl.classList.toggle('animate-scroll-up', recentCustomers.length > 3);
+
+            // Update Marquee
+            const marqueeCustomers = waitingCustomers;
+            if (servingCustomer) { marqueeCustomers.unshift(servingCustomer); }
+            const marqueeHTML = marqueeCustomers.map(c => `
+                <span class="marquee-item">
+                    <span class="font-bold text-indigo-400">${c.tokenNumber}</span>: ${escapeHtml(c.customerName)} 
+                    <span class="text-yellow-400">(${c.status})</span>
+                </span>
+            `).join('') || `<span class="marquee-item">Welcome!</span>`;
+
+            // Adding duplicates to ensure smooth looping for the marquee
+            marqueeTextEl.innerHTML = marqueeHTML + marqueeHTML; 
+            marqueeTextEl.classList.add('animate-marquee');
+        }
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                db = firebase.database();
+                audioPlayer = document.getElementById('music-player');
+                const nowPlayingBanner = document.getElementById('now-playing-banner');
+                const nowPlayingText = document.getElementById('now-playing-text');
+
+                const muteBtn = document.getElementById('mute-btn');
+                muteBtn.addEventListener('click', () => {
+                    isMuted = !isMuted;
+                    document.getElementById('unmuted-icon').classList.toggle('hidden', isMuted);
+                    document.getElementById('muted-icon').classList.toggle('hidden', !isMuted);
+                    if (isMuted) {
+                        speechSynthesis.cancel();
+                        audioPlayer.muted = true;
+                    } else {
+                        audioPlayer.muted = false;
+                    }
+                });
+                
+                const today = getTodayDateString();
+                const queueRef = db.ref(`queues/${today}`);
+                const mediaRef = db.ref(`mediaControls/${today}`);
+
+                db.ref('.info/serverTimeOffset').on('value', (snap) => {
+                    serverTimeOffset = snap.val() || 0; 
+                    
+                    queueRef.off(); 
+                    
+                    queueRef.on('value', (snapshot) => {
+                        const data = snapshot.val() || {};
+                        const queue = Object.values(data);
+                        updateDisplay(queue);
+                    }, (error) => {
+                        console.error("Firebase read failed:", error.code);
+                        noServingMessageEl.textContent = "Error: Connection lost.";
+                    });
+
+                }, (error) => {
+                    console.error("Could not get server time offset.", error);
+                    noServingMessageEl.textContent = "Error: Could not sync time.";
+                });
+
+                mediaRef.on('value', (snapshot) => {
+                    if (!snapshot.exists()) return;
+                    const data = snapshot.val();
+
+                    if (data.timestamp <= lastMediaCommandTimestamp) return;
+                    lastMediaCommandTimestamp = data.timestamp;
+
+                    if (data.trackUrl && audioPlayer.src !== data.trackUrl) {
+                        audioPlayer.src = data.trackUrl;
+                        nowPlayingText.textContent = `Now Playing: ${escapeHtml(data.trackName)}`;
+                    }
+                    
+                    switch (data.command) {
+                        case 'play':
+                            if (audioPlayer.src) {
+                                audioPlayer.play().catch(e => console.error("Audio play failed:", e));
+                                nowPlayingBanner.classList.remove('hidden');
+                                nowPlayingBanner.classList.remove('translate-y-full');
+                            }
+                            break;
+                        case 'pause':
+                            audioPlayer.pause();
+                            nowPlayingBanner.classList.add('translate-y-full');
+                            setTimeout(() => nowPlayingBanner.classList.add('hidden'), 300);
+                            break;
+                        case 'stop':
+                            audioPlayer.pause();
+                            audioPlayer.src = '';
+                            nowPlayingBanner.classList.add('translate-y-full');
+                            setTimeout(() => nowPlayingBanner.classList.add('hidden'), 300);
+                            break;
+                        case 'canned_announcement':
+                            if (data.name) {
+                                playCannedAnnouncement(data.name);
+                            }
+                            break;
+                    }
+                });
+
+            } catch (e) {
+                console.error("Initialization failed:", e);
+                document.body.innerHTML = `<div class="p-8 text-center text-red-500"><h1>Error</h1><p>The application could not be initialized.</p></div>`;
+            }
+        });
+    </script>
+
+<script src="./script.js"></script></body></html>
