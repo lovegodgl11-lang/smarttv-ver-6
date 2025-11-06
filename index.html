@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class=""><head><script>window.livecodes = window.livecodes || {};</script><title>Smarttv version 6</title><meta name="title" content="Smarttv version 6"><meta name="description" content="Update back music "><meta charset="UTF-8">
+<html lang="en" class=""><head><script>window.livecodes = window.livecodes || {};</script><title>Smarttv ver 7</title><meta name="title" content="Smarttv ver 7"><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0"><link rel="stylesheet" href="./style.css"><script src="https://cdn.jsdelivr.net/npm/es-module-shims@1.10.0/dist/es-module-shims.js" async=""></script><script type="importmap">{
   "imports": {}
 }</script></head><body>
@@ -431,6 +431,7 @@
                 }
                 db = firebase.database();
                 audioPlayer = document.getElementById('music-player');
+                audioPlayer.volume = 0.8; // Set default volume
                 const nowPlayingBanner = document.getElementById('now-playing-banner');
                 const nowPlayingText = document.getElementById('now-playing-text');
 
@@ -474,38 +475,44 @@
                     if (!snapshot.exists()) return;
                     const data = snapshot.val();
 
-                    if (data.timestamp <= lastMediaCommandTimestamp) return;
-                    lastMediaCommandTimestamp = data.timestamp;
-
-                    if (data.trackUrl && audioPlayer.src !== data.trackUrl) {
-                        audioPlayer.src = data.trackUrl;
-                        nowPlayingText.textContent = `Now Playing: ${escapeHtml(data.trackName)}`;
+                    // Handle volume separately
+                    if (typeof data.volume === 'number' && audioPlayer.volume !== data.volume) {
+                        audioPlayer.volume = data.volume;
                     }
-                    
-                    switch (data.command) {
-                        case 'play':
-                            if (audioPlayer.src) {
-                                audioPlayer.play().catch(e => console.error("Audio play failed:", e));
-                                nowPlayingBanner.classList.remove('hidden');
-                                nowPlayingBanner.classList.remove('translate-y-full');
-                            }
-                            break;
-                        case 'pause':
-                            audioPlayer.pause();
-                            nowPlayingBanner.classList.add('translate-y-full');
-                            setTimeout(() => nowPlayingBanner.classList.add('hidden'), 300);
-                            break;
-                        case 'stop':
-                            audioPlayer.pause();
-                            audioPlayer.src = '';
-                            nowPlayingBanner.classList.add('translate-y-full');
-                            setTimeout(() => nowPlayingBanner.classList.add('hidden'), 300);
-                            break;
-                        case 'canned_announcement':
-                            if (data.name) {
-                                playCannedAnnouncement(data.name);
-                            }
-                            break;
+
+                    if (data.timestamp && data.timestamp > lastMediaCommandTimestamp) {
+                        lastMediaCommandTimestamp = data.timestamp;
+
+                        if (data.trackUrl && audioPlayer.src !== data.trackUrl) {
+                            audioPlayer.src = data.trackUrl;
+                            nowPlayingText.textContent = `Now Playing: ${escapeHtml(data.trackName)}`;
+                        }
+                        
+                        switch (data.command) {
+                            case 'play':
+                                if (audioPlayer.src) {
+                                    audioPlayer.play().catch(e => console.error("Audio play failed:", e));
+                                    nowPlayingBanner.classList.remove('hidden');
+                                    nowPlayingBanner.classList.remove('translate-y-full');
+                                }
+                                break;
+                            case 'pause':
+                                audioPlayer.pause();
+                                nowPlayingBanner.classList.add('translate-y-full');
+                                setTimeout(() => nowPlayingBanner.classList.add('hidden'), 300);
+                                break;
+                            case 'stop':
+                                audioPlayer.pause();
+                                audioPlayer.src = '';
+                                nowPlayingBanner.classList.add('translate-y-full');
+                                setTimeout(() => nowPlayingBanner.classList.add('hidden'), 300);
+                                break;
+                            case 'canned_announcement':
+                                if (data.name) {
+                                    playCannedAnnouncement(data.name);
+                                }
+                                break;
+                        }
                     }
                 });
 
